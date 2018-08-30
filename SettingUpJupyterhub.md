@@ -16,6 +16,16 @@ Or for one with conda installed:
 
 ## SSL certificates
 
+To serve ssl encrypted, it's necessary to provide signed ssl certificates. The Azure VM installations come with self-signed certificates (which raises a warning on users web-browsers). It is also possible to replace these with CA signed ones if availabe. The relevant lines in the config file are
+
+```python
+c.JupyterHub.ssl_key = '/etc/jupyterhub/srv/server.key'
+c.JupyterHub.ssl_cert = '/etc/jupyterhub/srv/server.crt'
+c.JupyterHub.port = 8000
+```
+
+With a fixed domain name, it should be possible to obtain a certificate from a service such as [Let's Encrypt](https://letsencrypt.org) by installing `certbot` on the system and opening up ports 80 and 443 via the Azure interface. In particular, if JupyterHub is served on 443, then there is no need to include the port (i.e. YOUR_DOMAIN:8000) in the address given to students, or used for authentication below.
+
 ## Authentication
 
 Jupyterhub allows multiple methods for user authentication. The default uses the system user controls, so that people log on with the same details that they would to log in to the machine normally. Using an alternative method requires modifying the configuration file that jupyterhub starts from, or adding options on the command line itself. It's possible to access using either GitHub or college credentials using OAuth and the `oauthenticator` package available at https://github.com/jupyterhub/oauthenticator
@@ -47,7 +57,7 @@ c.LocalAzureAdOAuthenticator.tenant_id = os.environ.get('AAD_DIRECTORY_ID')
 
 c.LocalAzureAdOAuthenticator.oauth_callback_url = 'https://YOUR_DOMAIN/hub/oauth_callback'
 c.LocalAzureAdOAuthenticator.client_id = APPLICATION_IP
-c.LocalAzureAdOAuthenticator.client_secret = APPLICATION_KY
+c.LocalAzureAdOAuthenticator.client_secret = APPLICATION_KEY
 c.LocalAzureAdOAuthenticator.create_system_users = True
 c.LocalAzureAdOAuthenticator.add_user_cmd = ['adduser', '-q', '--gecos', '""', '--disabled-password']
 
@@ -102,9 +112,18 @@ The change to the `jupyterhub_config.py` file: to specify a limited set of users
 
 ```python
 # set of users allowed to use the Hub
-c.Authenticator.whitelist = {'minrk', 'takluyver’}
+c.Authenticator.whitelist = {'ggorman', 'mpiggott’}
 # set of users who can administer the Hub itself
-c.Authenticator.admin_users = {'mink'}
+c.Authenticator.admin_users = {'ggorman'}
 ```
-
 ## Spawning notebook servers
+
+The jupyterhub model has the hub instance create notebook instances for users as and when they are required. Several diffent models are avaiable
+
+ - Local Spawner - the default, uses root privileges to start a new notebook as a local user
+ - Sudo Spawner - For non-root accounts with (passwordless) sudo rights.
+ - Docker Spawner - Spin up a docker container for each user
+ - Kubernetes Spawner - Spin up an image in a Kubernetes cluster for each user.
+
+The choice of spawner and the enivronment which it presents is controlled in the config file.
+
