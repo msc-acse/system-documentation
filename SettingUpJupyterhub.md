@@ -14,6 +14,12 @@ Or for one with conda installed:
     conda install -c conda-forge jupyterhub
     conda install notebook
 
+To test, you can start up a default configuration from your termninal
+
+    sudo jupyterhub
+
+This will start the jupyterhub server with default settings, using local authentication (only users who can log into that computer can connect) and local spawning (this assumes the ability to switch users, hence the `sudo` above). It serves a login page accessable at `http://[the computer ip]:8000`. If the browser is on the same system as the server, then you can just use `http://localhost:8000`.
+
 ## SSL certificates
 
 To serve ssl encrypted, it's necessary to provide signed ssl certificates. The Azure VM installations come with self-signed certificates (which raises a warning on users web-browsers). It is also possible to replace these with CA signed ones if availabe. The relevant lines in the config file are
@@ -43,7 +49,7 @@ While creating the app, it's important to note the following information:
  - The ICL Directory ID (from the Azure Active Directory/Properties page).
  - The Azure Application ID (from the Azure Active Directory/App Registrations/App page).
 
-You also need to setup a key from the Azure Active Directory/App Registrations/keys page and to set a reply address of `http://://{your-domain}/hub/oauth_callback` or `https://{your-domain}/hub/oauth_callback`
+You also need to setup a key from the Azure Active Directory/App Registrations/keys page and to set a reply address of `http://://{your-domain}/hub/oauth_callback` or `https://{your-domain}/hub/oauth_callback`, depending on whether you've got ssl set up.
 
 At this point, you can add the following code block to your `jupyterhub_config.py` file:
 
@@ -69,7 +75,7 @@ replacing the Ids and domain name as needed. you also need to get the directory 
 export AAD_DIRECTORY_ID={the string you copied down before}
 ```
 
-At this point, you've configured Jupyterhub to use Azure authentication. Unfortunately, the college implementation passes the full name rather than a username, so we need to modify file `oauthenticator/azuread.py`, replacing the line
+Now you've , you've configured Jupyterhub to use Azure authentication. Unfortunately, the college implementation passes the full name rather than a username, so we need to modify file `oauthenticator/azuread.py`, replacing the line
 
 ```python
 userdict = {"name": decoded['name']}
@@ -120,10 +126,14 @@ c.Authenticator.admin_users = {'ggorman'}
 
 The jupyterhub model has the hub instance create notebook instances for users as and when they are required. Several diffent models are avaiable
 
- - Local Spawner - the default, uses root privileges to start a new notebook as a local user
+ - Local Spawner - the default, uses root privileges to start a new notebook as a local user. The local user may have been created by the authentication process if she did not exist already.
  - Sudo Spawner - For non-root accounts with (passwordless) sudo rights.
- - Docker Spawner - Spin up a docker container for each user
- - Kubernetes Spawner - Spin up an image in a Kubernetes cluster for each user.
+ - Docker Spawner - Spins up a docker container for each user. There are options to mount volumes from the host system inside the container if true persistence is required.
+ - Kubernetes Spawner - Spin up a docker image in a Kubernetes cluster for each user.
 
 The choice of spawner and the enivronment which it presents is controlled in the config file.
+
+## JupyterHub & Kubernetes
+
+Long term, JupyterHub provides base Docker images of itself, which it should be possible to load onto an Azure AKS Kubernetes cluster. In principle, if this is set up to use the kubernetes spawner for the single user notebooks, then the entire system should scale transparently.
 
