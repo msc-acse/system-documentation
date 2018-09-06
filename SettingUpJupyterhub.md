@@ -59,20 +59,20 @@ import os
 from oauthenticator.azuread import LocalAzureAdOAuthenticator
 c.JupyterHub.authenticator_class = LocalAzureAdOAuthenticator
 
-c.LocalAzureAdOAuthenticator.tenant_id = os.environ.get('AAD_DIRECTORY_ID')
+c.LocalAzureAdOAuthenticator.tenant_id = os.environ.get('AAD_TENANT_ID')
 
 c.LocalAzureAdOAuthenticator.oauth_callback_url = 'https://YOUR_DOMAIN/hub/oauth_callback'
-c.LocalAzureAdOAuthenticator.client_id = APPLICATION_IP
+c.LocalAzureAdOAuthenticator.client_id = APPLICATION_ID
 c.LocalAzureAdOAuthenticator.client_secret = APPLICATION_KEY
 c.LocalAzureAdOAuthenticator.create_system_users = True
-c.LocalAzureAdOAuthenticator.add_user_cmd = ['adduser', '-q', '--gecos', '""', '--disabled-password']
+c.LocalAzureAdOAuthenticator.add_user_cmd = ['aaduseradd', '-m', '-o `az ad user show --upn-or-object-id USERNAME --query objectId`']
 
 ```
 
 replacing the Ids and domain name as needed. you also need to get the directory ID into the environment, for example by running
 
 ```
-export AAD_DIRECTORY_ID={the string you copied down before}
+export AAD_TENANT_ID={the directory string you copied down before}
 ```
 
 Now you've , you've configured Jupyterhub to use Azure authentication. Unfortunately, the college implementation passes the full name rather than a username, so we need to modify file `oauthenticator/azuread.py`, replacing the line
@@ -83,7 +83,7 @@ userdict = {"name": decoded['name']}
 with
 
 ```python
-userdict = {"name": decoded['upn'].split('@')[0]}
+userdict = {"name": decoded['upn']}
 ```
 
 ### Github
