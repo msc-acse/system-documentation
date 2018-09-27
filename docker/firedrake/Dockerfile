@@ -4,7 +4,7 @@
 FROM jupyter/scipy-notebook
 
 # This DockerFile is looked after by
-MAINTAINER James Percival
+MAINTAINER Stephan Kramer <s.kramer@imperial.ac.uk>
 
 # Update the system
 USER root
