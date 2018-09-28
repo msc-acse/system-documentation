@@ -143,17 +143,17 @@ Initial cluster deployment is documented at https://docs.microsoft.com/en-us/azu
 
 Steps followed: 
 
-'''az ad sp create-for-rbac --skip-assignment 
+```az ad sp create-for-rbac --skip-assignment 
 ((make a node of the appId and password for later) 
 az group create --name=jupyterhub --location=westeurope --output table 
 az aks create --resource-group jupyterhub --name jupyterhubaks --node-count 3 --service-principal <hash> --client-secret <hash> --generate-ssh-keys 
-'''
+```
     
 Once the AKS instance completes, set the public DNS within the Azure portal.
 
 Set up a local kube environment in Azure shell (brute force method, overwriting any previous config):
 
-'''rm -rf ~/.kube/ 
+```rm -rf ~/.kube/ 
 az aks get-credentials --resource-group jupyterhub --name jupyterhubaks 
 cat > helm-rbac.yaml << EOF 
 apiVersion: v1 
@@ -177,14 +177,14 @@ subjects:
 EOF 
 kubectl create -f helm-rbac.yaml 
 helm init --service-account tiller 
-'''
+```
 
 Add the jupyterhub repo:
 
-'''
+```
 helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/ 
 helm repo update 
-'''
+```
 
 Follow instructions from jrper to create a jhub service principal:
 
@@ -197,7 +197,7 @@ Follow instructions from jrper to create a jhub service principal:
 
 Now create the configuration for jhub:
 
-'''
+```
 cat >> config.yaml << EOF 
 proxy: 
   secretToken: "<newly-generated-64char-hash>" 
@@ -236,13 +236,13 @@ singleuser:
     name: stephankramer/jhub-notebook-firefox
     tag: "20180927"
 
-EOF 
-'''
+EOF
+```
 
 And deploy:
 
-'''
+```
 helm upgrade --install jupyterhub jupyterhub/jupyterhub --namespace jupyterhub --version 0.7.0   --values config.yaml 
-'''
+```
  
 
