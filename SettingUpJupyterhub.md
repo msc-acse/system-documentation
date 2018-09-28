@@ -137,3 +137,112 @@ The choice of spawner and the enivronment which it presents is controlled in the
 
 Long term, JupyterHub provides base Docker images of itself, which it should be possible to load onto an Azure AKS Kubernetes cluster. In principle, if this is set up to use the kubernetes spawner for the single user notebooks, then the entire system should scale transparently.
 
+## Initial draft of notes by tmbgreaves for setting up kubernetes+jhub
+
+Initial cluster deployment is documented at https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster 
+
+Steps followed: 
+
+'''az ad sp create-for-rbac --skip-assignment 
+((make a node of the appId and password for later) 
+az group create --name=jupyterhub --location=westeurope --output table 
+az aks create --resource-group jupyterhub --name jupyterhubaks --node-count 3 --service-principal <hash> --client-secret <hash> --generate-ssh-keys 
+'''
+    
+Once the AKS instance completes, set the public DNS within the Azure portal.
+
+Set up a local kube environment in Azure shell (brute force method, overwriting any previous config):
+
+'''rm -rf ~/.kube/ 
+az aks get-credentials --resource-group jupyterhub --name jupyterhubaks 
+cat > helm-rbac.yaml << EOF 
+apiVersion: v1 
+kind: ServiceAccount 
+metadata: 
+  name: tiller 
+  namespace: kube-system 
+--- 
+apiVersion: rbac.authorization.k8s.io/v1beta1 
+kind: ClusterRoleBinding 
+metadata: 
+  name: tiller 
+roleRef: 
+  apiGroup: rbac.authorization.k8s.io 
+  kind: ClusterRole 
+  name: cluster-admin 
+subjects: 
+  - kind: ServiceAccount 
+    name: tiller 
+    namespace: kube-system 
+EOF 
+kubectl create -f helm-rbac.yaml 
+helm init --service-account tiller 
+'''
+
+Add the jupyterhub repo:
+
+'''
+helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/ 
+helm repo update 
+'''
+
+Follow instructions from jrper to create a jhub service principal:
+
+* Login to the portal and go to Azure Active Directory > App registrations > New application registrations
+* give a name and (any) url 
+* Create and note the Application ID number (which is the AAD_CLIENT_ID above) 
+* Then on the app settings>Keys and in the passwords box add a description and duration for a client secret. Click save and note the value carefully (this is AAD_CLIENT_SECRET) 
+* Next on the app setttings>Reply urls add the jupyterhub callback url, which is of the form https://<your host name> :<your port>/hub/oauth_callback (this is the OAUTH_CALLBACK_URL) 
+* Finally on Azure Active Directory > Properties, note the Directory ID for imperial college london (this is the AAD_TENANT_ID above)
+
+Now create the configuration for jhub:
+
+'''
+cat >> config.yaml << EOF 
+proxy: 
+  secretToken: "<newly-generated-64char-hash>" 
+  https: 
+    hosts: 
+      - "ese-jhub.westeurope.cloudapp.azure.com" 
+    letsencrypt: 
+      contactEmail: xxx.xxx@imperial.ac.uk 
+    
+hub: 
+  extraEnv: 
+    AAD_TENANT_ID: "<hash>" 
+  image: 
+    name: tmbgreaves/jupyterhub-k8s 
+    tag: '0.7.0-usernamehack' 
+
+auth: 
+  type: custom 
+  custom: 
+    className: 'oauthenticator.azuread.AzureAdOAuthenticator' 
+    config: 
+      client_id: "<hash>" 
+      client_secret: "<hash>" 
+      oauth_callback_url: "https://ese-jhub.westeurope.cloudapp.azure.com/hub/oauth_callback" 
+      tenant_id: "<hash>" 
+  admin:
+    users:
+      - "tmb1"
+      - "jrper"
+      - "skramer"
+      - "nbarral"
+      - "ggorman"
+
+singleuser:
+  image:
+    name: stephankramer/jhub-notebook-firefox
+    tag: "20180927"
+
+EOF 
+'''
+
+And deploy:
+
+'''
+helm upgrade --install jupyterhub jupyterhub/jupyterhub --namespace jupyterhub --version 0.7.0   --values config.yaml 
+'''
+ 
+
