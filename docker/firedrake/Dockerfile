@@ -44,7 +44,7 @@ RUN rm spec-file.txt
 WORKDIR /opt/conda/envs/firedrake/
 RUN curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
 # the --with-zlib is a temp. work-around (should be fixed some time soon in firedrake)
-RUN bash -c "source activate firedrake && PETSC_CONFIGURE_OPTIONS="--with-zlib" python3 firedrake-install --no-package-manager --disable-ssh --install pyadjoint --install thetis --venv-name=firedrake-venv"
+RUN bash -c "source activate firedrake && python3 firedrake-install --no-package-manager --disable-ssh --install pyadjoint --install thetis --venv-name=firedrake-venv"
 
 # automatically activate the firedrake venv when activating the firedrake conda environment
 # this only changes behaviour in the (bash) shell
@@ -62,8 +62,11 @@ RUN echo deactivate > /opt/conda/envs/firedrake/etc/conda/deactivate.d/01_firedr
 # by adding the following hack to the conda-env deactivate script
 RUN echo "export PATH=$(echo $PATH | sed 's@/opt/conda/envs/firedrake/firedrake-venv/bin:@@')" >> /opt/conda/envs/firedrake/bin/deactivate
 # register the firedrake venv python as a kernel for ipython (and thus jupyter)
-RUN bash -c "source activate firedrake && pip install ipykernel"
+# for jupyterhub to work, it needs to have jupyterhub installed in that enviroment as well
+RUN bash -c "source activate firedrake && pip install jupyterhub ipykernel"
 RUN bash -c "source activate firedrake && python -m ipykernel install --user --name firedrake --display-name 'Python 3 (firedrake)'"
 # mpltools is only installed (above) in conda, not in the firedrake venv
 RUN bash -c "source activate firedrake && pip install mpltools"
 WORKDIR /home/jovyan
+# avoid warnings about openib not being available in openmpi when running on azure
+ENV OMPI_MCA_btl=tcp,self
